@@ -55,4 +55,23 @@ VIT_CONFIG_DICT: dict[ViTPreset, ViTConfig] = {
         init_values=1e-5,
         global_pool="",
     ),
+        # ViT-Base(86M) - dinov2b16_384
+    "dinov2b16_384": ViTConfig(
+        in_chans=3,
+        embed_dim=768,  
+        depth=12,       
+        num_heads=12,  
+        init_values=1e-5,
+        global_pool="",
+    ),
+    
+    # ViT-Samll - dinov2s16_384
+    "dinov2s16_384": ViTConfig(
+        in_chans=3,
+        embed_dim=384,
+        depth=12,    
+        num_heads=6,    
+        init_values=1e-5,
+        global_pool="",
+    ),
 }
