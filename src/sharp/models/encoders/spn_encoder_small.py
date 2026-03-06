@@ -29,6 +29,7 @@ from sharp.models.presets import (
 from .vit_encoder import create_vit
 
 from sharp.models.decoders.monodepth_decoder import create_monodepth_decoder
+from sharp.models.decoders.multires_conv_decoder_wrap import MultireeConvDecoderWrap
 import time
 
 # torch.fx.wrap is used here to mark functions as leaf nodes during symbolic tracing
@@ -517,6 +518,7 @@ if __name__ == '__main__':
 
     dims_decoder = (128, 128, 128, 128, 128)
     decoder = create_monodepth_decoder(vit_name, dims_decoder=dims_decoder)
+    decoder_wrap = MultireeConvDecoderWrap(decoder)
     
     encoder = encoder.to('cpu')
     input = torch.ones((1,3,1536, 1536)).to('cpu')
@@ -572,10 +574,10 @@ if __name__ == '__main__':
             end = time.time()
             print((end- start) / 100, 'ms')        # 0.0056 ms m2 pro; iphone 16 60 ms
 
-        model = decoder.eval()
+        model = decoder_wrap.eval()
         example_input = [torch.rand(1, 128, 768, 768), torch.rand(1, 96, 384, 384), torch.rand(1, 192, 192, 192), 
         torch.rand(1, 384, 96, 96), torch.rand(1, 384, 48, 48)]
-        traced_model = torch.jit.trace(model, (example_input,))
+        traced_model = torch.jit.trace(model, example_input)
 
         inputs = [ct.TensorType(shape=x.shape) for x in example_input]
 
@@ -588,14 +590,19 @@ if __name__ == '__main__':
             convert_to="mlprogram",
             compute_precision=ct.precision.FLOAT16,
         )
-        model_from_trace.save("decoder_vits.mlpackage")
+        model_from_trace.save("models/decoder_vits.mlpackage")
 
-        loaded_model = ct.models.MLModel("decoder_vits.mlpackage", optimization_hints ={"specializationStrategy":ct.SpecializationStrategy.FastPrediction}) 
+        loaded_model = ct.models.MLModel("models/decoder_vits.mlpackage", optimization_hints ={"specializationStrategy":ct.SpecializationStrategy.FastPrediction}) 
 
         start = time.time()
         # Make a prediction using Core ML
         for i in range(100):
-            out_dict = loaded_model.predict({"x_1": example_input}) # x_1
+            out_dict = loaded_model.predict({"encoder_0": example_input[0],
+                                             "encoder_1": example_input[1],
+                                             "encoder_2": example_input[2],
+                                             "encoder_3": example_input[3],
+                                             "encoder_4": example_input[4],
+                                             }) # x_1
         end = time.time()
         print((end- start) / 100, 'ms')        # 0.0056 ms m2 pro; iphone 16 60 ms
 
